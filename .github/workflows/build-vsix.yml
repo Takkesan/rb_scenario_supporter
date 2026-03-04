@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build-vsix:
     runs-on: ubuntu-latest
@@ -28,9 +31,16 @@ jobs:
       - name: Package VSIX
         run: npx -y @vscode/vsce package --allow-missing-repository
 
-      - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish to GitHub Release
+        uses: ncipollo/release-action@v1
         with:
-          name: rb-scenario-supporter-vsix
-          path: '*.vsix'
-          if-no-files-found: error
+          tag: main-snapshot
+          name: Main Snapshot
+          body: |
+            Automated build from `main`.
+            Commit: ${{ github.sha }}
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          artifacts: '*.vsix'
