@@ -31,16 +31,38 @@ jobs:
       - name: Package VSIX
         run: npx -y @vscode/vsce package --allow-missing-repository
 
-      - name: Publish to GitHub Release
+      - name: Build metadata
+        id: meta
+        run: |
+          ts=$(date -u +"%Y%m%d-%H%M")
+          ts_human=$(date -u +"%Y-%m-%d %H:%M UTC")
+          short_sha="${GITHUB_SHA::7}"
+          echo "tag_suffix=${ts}-${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "display_time=${ts_human}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish latest dev release
         uses: ncipollo/release-action@v1
         with:
-          tag: main-snapshot
-          name: Main Snapshot
+          tag: dev
+          name: Dev (latest)
           body: |
-            Automated build from `main`.
+            Latest development build from `main`.
             Commit: ${{ github.sha }}
           prerelease: true
           allowUpdates: true
           removeArtifacts: true
           replacesArtifacts: true
+          artifacts: '*.vsix'
+
+      - name: Publish historical dev release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: dev-${{ steps.meta.outputs.tag_suffix }}
+          name: Dev ${{ steps.meta.outputs.display_time }} ${{ steps.meta.outputs.short_sha }}
+          body: |
+            Historical development build from `main`.
+            Commit: ${{ github.sha }}
+          prerelease: true
+          allowUpdates: false
           artifacts: '*.vsix'
