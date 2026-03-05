@@ -1,3 +1,6 @@
+# For setting json
+mruby-command-snippets.json
+
 node_modules/
 out/
 .vscode-test/
