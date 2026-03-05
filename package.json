@@ -2,7 +2,7 @@
   "name": "rb-scenario-supporter",
   "displayName": "RB Scenario Supporter",
   "description": "IntelliSense snippets for a Ruby visual novel scenario DSL",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "local",
   "engines": {
     "vscode": "^1.90.0"
@@ -15,6 +15,17 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Ruby Scenario Supporter",
+      "properties": {
+        "rbScenarioSupporter.snippetJsonPath": {
+          "type": "string",
+          "default": "mruby-command-snippets.json",
+          "description": "スニペット定義jsonファイルのパス（ワークスペースルートからの相対パス、または絶対パス）"
+        }
+      }
+    },
     "languages": [
       {
         "id": "ruby",

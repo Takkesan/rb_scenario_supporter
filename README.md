@@ -3,18 +3,28 @@
 VSCode extension that provides snippet-based completion for a Ruby visual novel scenario DSL.
 
 ## Features
-In `ruby` files (`.rb`), completion suggestions include:
+In `ruby` files (`.rb`), completion suggestions are loaded only from your snippet JSON file.
 
-- `talk` -> `cmd :talk, name: '...', text: '...'`
-- `bg` -> `cmd :bg, key: '...'`
-- `hide_bg` -> `cmd :hide_bg`
-- `fadein` -> `cmd :fadein, duration: 0.5`
-- `fadeout` -> `cmd :fadeout, duration: 0.5`
-- `choice` -> `cmd :choice, choices: ['choice1', 'choice2']`
-- `show_talk` -> `cmd :show_talk`
-- `hide_talk` -> `cmd :hide_talk`
+## Custom snippets (JSON)
+You can add your own command templates via:
 
-`talk` also has a variant with `is_end`.
+- `rbScenarioSupporter.snippetJsonPath`
+
+Default path is `mruby-command-snippets.json` (resolved from workspace root unless absolute).  
+If the file is missing or invalid, no DSL completion is shown.
+
+Supported JSON formats:
+
+1. Array format only:
+
+```json
+[
+  {
+    "key": "shake",
+    "insertText": "cmd :shake, power: ${1:1.0}$0"
+  }
+]
+```
 
 ## Development
 

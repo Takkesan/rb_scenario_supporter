@@ -111,3 +111,8 @@ Optional automated tests (later):
   - default character name
   - quote style (`'` vs `"`)
   - include/omit trailing commas, etc.
+
+
+- Accept external JSON files (command snippet definitions) and use them as completion candidates (from v2 onwards).
+  - Users can add their own DSL commands or templates via JSON.
+  - The extension will read the JSON file specified in VSCode settings and generate completion candidates from it.

@@ -1,80 +1,135 @@
 import * as vscode from 'vscode';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-type DslTemplate = {
+type CommandTemplate = {
   key: string;
-  label: string;
   insertText: string;
-  detail: string;
-  documentation: string;
 };
 
-const DSL_TEMPLATES: DslTemplate[] = [
-  {
-    key: 'talk',
-    label: 'talk (cmd :talk template)',
-    insertText: "cmd :talk, name: '${1:name}', text: '${2:text}'$0",
-    detail: 'Ruby scenario DSL: talk command template',
-    documentation: 'Insert cmd :talk with name and text fields.'
-  },
-  {
-    key: 'talk',
-    label: 'talk (cmd :talk with is_end)',
-    insertText: "cmd :talk, name: '${1:name}', text: '${2:text}', is_end: ${3:false}$0",
-    detail: 'Ruby scenario DSL: talk command template with is_end',
-    documentation: 'Insert cmd :talk with name, text, and is_end flag.'
-  },
-  {
-    key: 'bg',
-    label: 'bg (cmd :bg template)',
-    insertText: "cmd :bg, key: '${1:key}'$0",
-    detail: 'Ruby scenario DSL: bg command template',
-    documentation: 'Insert cmd :bg with key.'
-  },
-  {
-    key: 'hide_bg',
-    label: 'hide_bg (cmd :hide_bg template)',
-    insertText: 'cmd :hide_bg$0',
-    detail: 'Ruby scenario DSL: hide_bg command template',
-    documentation: 'Insert cmd :hide_bg.'
-  },
-  {
-    key: 'fadein',
-    label: 'fadein (cmd :fadein template)',
-    insertText: 'cmd :fadein, duration: ${1:0.5}$0',
-    detail: 'Ruby scenario DSL: fadein command template',
-    documentation: 'Insert cmd :fadein with duration.'
-  },
-  {
-    key: 'fadeout',
-    label: 'fadeout (cmd :fadeout template)',
-    insertText: 'cmd :fadeout, duration: ${1:0.5}$0',
-    detail: 'Ruby scenario DSL: fadeout command template',
-    documentation: 'Insert cmd :fadeout with duration.'
-  },
-  {
-    key: 'choice',
-    label: 'choice (cmd :choice template)',
-    insertText: "cmd :choice, choices: ['${1:choice1}', '${2:choice2}']$0",
-    detail: 'Ruby scenario DSL: choice command template',
-    documentation: 'Insert cmd :choice with two choices.'
-  },
-  {
-    key: 'show_talk',
-    label: 'show_talk (cmd :show_talk template)',
-    insertText: 'cmd :show_talk$0',
-    detail: 'Ruby scenario DSL: show_talk command template',
-    documentation: 'Insert cmd :show_talk.'
-  },
-  {
-    key: 'hide_talk',
-    label: 'hide_talk (cmd :hide_talk template)',
-    insertText: 'cmd :hide_talk$0',
-    detail: 'Ruby scenario DSL: hide_talk command template',
-    documentation: 'Insert cmd :hide_talk.'
-  }
-];
+type ExternalSnippetCache = {
+  resolvedPath: string;
+  mtimeMs: number;
+  templates: CommandTemplate[];
+  hasError: boolean;
+};
 
-const DSL_KEYS = Array.from(new Set(DSL_TEMPLATES.map((template) => template.key)));
+let externalSnippetCache: ExternalSnippetCache | undefined;
+
+function toExternalTemplate(entry: unknown, fallbackKey?: string): CommandTemplate | undefined {
+  if (!entry || typeof entry !== 'object') {
+    return undefined;
+  }
+
+  const item = entry as Record<string, unknown>;
+  const key = typeof item.key === 'string' ? item.key : fallbackKey;
+  if (!key) {
+    return undefined;
+  }
+
+  if (typeof item.insertText !== 'string') {
+    return undefined;
+  }
+
+  return {
+    key,
+    insertText: item.insertText
+  };
+}
+
+function parseExternalTemplates(jsonText: string): CommandTemplate[] {
+  const parsed = JSON.parse(jsonText) as unknown;
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  return parsed
+    .map((entry) => toExternalTemplate(entry))
+    .filter((template): template is CommandTemplate => Boolean(template));
+}
+
+function resolveSnippetJsonPath(configPath: string): string | undefined {
+  const trimmed = configPath.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+
+  if (path.isAbsolute(trimmed)) {
+    return trimmed;
+  }
+
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceFolder) {
+    return undefined;
+  }
+
+  return path.resolve(workspaceFolder, trimmed);
+}
+
+function getExternalTemplates(): CommandTemplate[] {
+  const config = vscode.workspace.getConfiguration('rbScenarioSupporter');
+  const configuredPath = config.get<string>('snippetJsonPath', '');
+  const resolvedPath = resolveSnippetJsonPath(configuredPath);
+
+  if (!resolvedPath) {
+    externalSnippetCache = undefined;
+    return [];
+  }
+
+  try {
+    const stat = fs.statSync(resolvedPath);
+    const currentMtimeMs = stat.mtimeMs;
+    if (
+      externalSnippetCache &&
+      externalSnippetCache.resolvedPath === resolvedPath &&
+      externalSnippetCache.mtimeMs === currentMtimeMs
+    ) {
+      return externalSnippetCache.templates;
+    }
+
+    const jsonText = fs.readFileSync(resolvedPath, 'utf8');
+    const parsedTemplates = parseExternalTemplates(jsonText);
+    externalSnippetCache = {
+      resolvedPath,
+      mtimeMs: currentMtimeMs,
+      templates: parsedTemplates,
+      hasError: false
+    };
+
+    return parsedTemplates;
+  } catch (error) {
+    if (
+      externalSnippetCache &&
+      externalSnippetCache.resolvedPath === resolvedPath &&
+      externalSnippetCache.hasError
+    ) {
+      if (!fs.existsSync(resolvedPath)) {
+        return [];
+      }
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[rb-scenario-supporter] Failed to load snippet JSON at ${resolvedPath}: ${message}`);
+    let mtimeMs = -1;
+    try {
+      mtimeMs = fs.statSync(resolvedPath).mtimeMs;
+    } catch {
+      mtimeMs = -1;
+    }
+    externalSnippetCache = {
+      resolvedPath,
+      mtimeMs,
+      templates: [],
+      hasError: true
+    };
+    return [];
+  }
+}
+
+function getAllTemplates(): CommandTemplate[] {
+  return getExternalTemplates();
+}
 
 function isLikelyInsideString(linePrefix: string): boolean {
   let inSingle = false;
@@ -114,7 +169,9 @@ function getPrefix(document: vscode.TextDocument, position: vscode.Position): st
   return match ? match[0] : '';
 }
 
-function matchesPrefix(prefix: string): boolean {
+function matchesPrefix(prefix: string, templates: CommandTemplate[]): boolean {
+  const dslKeys = Array.from(new Set(templates.map((template) => template.key)));
+
   if (prefix.length === 0) {
     return false;
   }
@@ -123,18 +180,16 @@ function matchesPrefix(prefix: string): boolean {
     return true;
   }
 
-  return DSL_KEYS.some((key) => key.startsWith(prefix));
+  return dslKeys.some((key) => key.startsWith(prefix));
 }
 
 function shouldShowAfterCmdColon(linePrefix: string): boolean {
   return /cmd\s*:\s*[a-z_]*$/i.test(linePrefix);
 }
 
-function toCompletionItem(template: DslTemplate): vscode.CompletionItem {
-  const item = new vscode.CompletionItem(template.label, vscode.CompletionItemKind.Snippet);
+function toCompletionItem(template: CommandTemplate): vscode.CompletionItem {
+  const item = new vscode.CompletionItem(template.key, vscode.CompletionItemKind.Snippet);
   item.insertText = new vscode.SnippetString(template.insertText);
-  item.detail = template.detail;
-  item.documentation = new vscode.MarkdownString(template.documentation);
   item.sortText = `0_${template.key}`;
   item.filterText = template.key;
   return item;
@@ -160,12 +215,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const prefix = getPrefix(document, position).toLowerCase();
       const afterCmdColon = shouldShowAfterCmdColon(linePrefix);
+      const templates = getAllTemplates();
 
-      if (!afterCmdColon && !matchesPrefix(prefix)) {
+      if (!afterCmdColon && !matchesPrefix(prefix, templates)) {
         return [];
       }
 
-      return DSL_TEMPLATES.filter((template) => {
+      return templates.filter((template) => {
         if (afterCmdColon) {
           return template.key.startsWith(prefix);
         }
