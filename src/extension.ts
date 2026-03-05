@@ -188,11 +188,48 @@ function shouldShowAfterCmdColon(linePrefix: string): boolean {
 }
 
 function toCompletionItem(template: CommandTemplate): vscode.CompletionItem {
-  const item = new vscode.CompletionItem(template.key, vscode.CompletionItemKind.Snippet);
+  const parameterNames = extractParameterNames(template.insertText);
+  const parameterSummary = parameterNames.length > 0
+    ? `(${parameterNames.map((name) => `${name}:`).join(', ')})`
+    : '(no parameters)';
+  const item = new vscode.CompletionItem(
+    {
+      label: template.key,
+      detail: ` ${parameterSummary}`,
+      description: 'rb scenario cmd'
+    },
+    vscode.CompletionItemKind.Snippet
+  );
   item.insertText = new vscode.SnippetString(template.insertText);
   item.sortText = `0_${template.key}`;
   item.filterText = template.key;
+  item.detail = `cmd :${template.key} ${parameterSummary}`;
+  item.documentation = new vscode.MarkdownString(`Ruby scenario DSL command: \`cmd :${template.key}\``);
   return item;
+}
+
+function extractParameterNames(snippetText: string): string[] {
+  const withoutPlaceholders = snippetText
+    .replace(/\$\{\d+:([^}]*)\}/g, '$1')
+    .replace(/\$\{\d+\}/g, '')
+    .replace(/\$\d+/g, '');
+
+  const commandMatch = withoutPlaceholders.match(/cmd\s*:\s*[a-z_]+,?(.*)$/i);
+  if (!commandMatch) {
+    return [];
+  }
+
+  const paramsPart = commandMatch[1];
+  const names = new Set<string>();
+  const regex = /([a-z_][a-z0-9_]*)\s*:/gi;
+  let match = regex.exec(paramsPart);
+
+  while (match) {
+    names.add(match[1]);
+    match = regex.exec(paramsPart);
+  }
+
+  return Array.from(names);
 }
 
 export function activate(context: vscode.ExtensionContext): void {

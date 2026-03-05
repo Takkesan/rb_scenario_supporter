@@ -2,7 +2,7 @@
   "name": "rb-scenario-supporter",
   "displayName": "RB Scenario Supporter",
   "description": "IntelliSense snippets for a Ruby visual novel scenario DSL",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "local",
   "engines": {
     "vscode": "^1.90.0"

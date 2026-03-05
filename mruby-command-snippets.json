@@ -1,0 +1,38 @@
+[
+  {
+    "key": "talk",
+    "insertText": "cmd :talk, name: '${1:name}', text: '${2:text}'$0"
+  },
+  {
+    "key": "bg",
+    "insertText": "cmd :bg, key: '${1:key}'$0"
+  },
+  {
+    "key": "hide_bg",
+    "insertText": "cmd :hide_bg$0"
+  },
+  {
+    "key": "pic",
+    "insertText": "cmd :pic, key: '${1:key}', position: '${2:position}', face: '${3:face}'$0"
+  },
+  {
+    "key": "face",
+    "insertText": "cmd :face, position: '${1:position}', face: '${2:face}'$0"
+  },
+  {
+    "key": "hide_pic",
+    "insertText": "cmd :hide_pic, position: '${1:position}'$0"
+  },
+  {
+    "key": "fadein",
+    "insertText": "cmd :fadein, duration: '${1:duration}', start_block_raycast: '${2:start_block_raycast}'$0"
+  },
+  {
+    "key": "fadeout",
+    "insertText": "cmd :fadeout, duration: '${1:duration}', start_block_raycast: '${2:start_block_raycast}'$0"
+  },
+  {
+    "key": "choice",
+    "insertText": "cmd :choice, choices: '${1:choices}'$0"
+  }
+]
